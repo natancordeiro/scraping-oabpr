@@ -3,16 +3,26 @@ Módulo onde é guardado as funções externas para utilização geral do projet
 """
 
 import os
+import time
 import pydub
 import urllib
 import random
 import logging
 import colorlog
+import subprocess
 import speech_recognition
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
+
+# Colors
+VERMELHO = '\033[91m'
+VERDE = '\033[92m'
+AMARELO = '\033[93m'
+AZUL = '\033[94m'
+ROXO = '\033[95m'
+RESET = '\033[0m'
 
 def setup_logging(to_file=False):
     """Setup logging"""
@@ -136,3 +146,66 @@ def insert_values(values: list):
     row = ws.max_row + 1
     ws.append(values)
     wb.save(filename)
+
+def verificar_ffmpeg():
+    destino_final = r'C:\ffmpeg'
+    ffmpeg_path = r'C:\ffmpeg\bin'
+    ffmpeg_extracted_path = r'C:\ffmpeg-7.0.1-full_build'
+    script_path = os.path.join(os.getcwd(), 'ffmpeg', 'update_path.ps1')
+    arquivo_7z = os.path.join(os.getcwd(), 'ffmpeg', 'ffmpeg-full_build.7z')
+    caminho_7z = r'C:\Program Files\7-Zip\7z.exe'
+    
+    # Verifica se o diretório C:\ffmpeg\bin já existe
+    if os.path.exists(ffmpeg_path):
+        print(f"{VERDE}O ffmpeg já está instalado.{RESET}")
+        time.sleep(3)
+        return
+    
+    # Verifica se o arquivo .7z existe
+    if not os.path.exists(arquivo_7z):
+        print(f"{AMARELO}O arquivo {arquivo_7z} não foi encontrado.{RESET}")
+        time.sleep(3)
+        return
+
+    # Verifica se o 7z.exe existe
+    if not os.path.exists(caminho_7z):
+        print(f"{AMARELO}O executável 7z.exe não foi encontrado no caminho especificado: {caminho_7z}{RESET}")
+        time.sleep(3)
+        return
+    
+    try:
+        subprocess.run([caminho_7z, 'x', arquivo_7z, '-oC:\\'], check=True)
+        print(f"{VERDE}Descompactação concluída com sucesso.{RESET}")
+    except Exception as e:
+        print(f"{VERMELHO}Erro ao descompactar o arquivo: {e}{RESET}")
+        time.sleep(3)
+        return
+    
+    # Renomeia o diretório descompactado para ffmpeg
+    if os.path.exists(ffmpeg_extracted_path):
+        try:
+            os.rename(ffmpeg_extracted_path, destino_final)
+            print(f"{VERDE}Renomeação do diretório concluída com sucesso.{RESET}")
+        except Exception as e:
+            print(f"{VERMELHO}Erro ao renomear o diretório: {e}")
+            time.sleep(3)
+            return
+
+    # Executa o script PowerShell como administrador
+    try:
+        subprocess.run(['powershell', '-Command', 'Start-Process', 'powershell', '-ArgumentList', f"'-File {script_path}'", '-Verb', 'RunAs'], check=True)
+        print(f"{VERDE}O PATH do sistema foi atualizado com sucesso.{RESET}")
+    except subprocess.CalledProcessError as e:
+        print(f"{VERMELHO}Erro ao atualizar o PATH do sistema: {e}{RESET}")
+        time.sleep(3)
+        return
+    
+    # Testa se o ffmpeg está funcionando
+    try:
+        subprocess.run(['ffmpeg', '-version'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(f"{VERDE}Teste do ffmpeg concluído{RESET}")
+    except subprocess.CalledProcessError as e:
+        print(f"{VERMELHO}Erro ao testar o ffmpeg: {e.stderr.decode()}{RESET}")
+        time.sleep(3)
+        return
+    time.sleep(3)

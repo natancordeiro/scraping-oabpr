@@ -1,7 +1,12 @@
 import logging
 
 from bot import Bot
-from ext.functions import create_excel_file
+from ext.functions import create_excel_file, verificar_ffmpeg
+
+instalar_ffmpeg = input("Deseja instalar o FFMPEG antes? (sim/nao): ")
+
+if 's' in instalar_ffmpeg.lower().strip():
+    verificar_ffmpeg()
 
 # Instancia o robô que executa a automação
 bot = Bot(False)

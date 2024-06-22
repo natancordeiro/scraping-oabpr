@@ -1,10 +1,5 @@
-import logging
-import os
-import sys
 import time
-from datetime import datetime
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import WebDriverException, NoSuchElementException
 
 from driver.driver import Driver
 from iterator.iteration import Interation
@@ -35,17 +30,16 @@ class Bot(Interation):
 
         super().__init__(self.driver)
 
-
     def open_oab(self):
         """Abre a página da OAB."""
 
         try:
             self.load_page(self.base_url)
-
             self.wait_for(XPATH['dado'])
             return True
         except Exception as e:
             self.logger.error(f"Erro ao abrir página inicial da OAB.")
+            self.quit()
 
     def get_last_page(self) -> int:
         """Retorna a última página da lista de advogados."""
@@ -65,18 +59,18 @@ class Bot(Interation):
             page (int): Número da página a ser processada.
         """
 
-        self.logger.info(f'Processando a página {page}')
         try:
             if page != 1:
                 self.load_page(self.base_url + f'&pg={page}')
-            advogados = self.find_all(XPATH['dado'])
+            advogados_elements = self.find_all(XPATH['dado'])
+            advogados = {advogado.text: advogado.get_attribute('href') for advogado in advogados_elements}
             
-            for advogado in advogados:
-                link = advogado.get_attribute('href')
-                self.process_advogado(advogado.text, link)
+            for nome, link in advogados.items():
+                self.process_advogado(nome, link)
 
         except Exception as e:
             self.logger.error(f"Erro ao processar página {page}: {e}")
+            self.quit()
 
     def is_solved(self):
         """Verifica se o captcha já foi resolvido."""
@@ -87,7 +81,6 @@ class Bot(Interation):
             return True
         else:
             return False
-
 
     def process_advogado(self, advogado: str, link: str):
         """
@@ -106,18 +99,20 @@ class Bot(Interation):
 
         except Exception as e:
             self.logger.error(f"Erro ao processar advogado {advogado}: {e}")
+            self.quit()
 
     def resolve_captcha(self):
         """Resolução do captcha."""
+        
         try:
             iframe = self.find(CSS['reCAPTCHA'], metodo='css')
             self.driver.switch_to.frame(iframe)
 
             self.find(CSS['body'], metodo='css').click()
 
-            self.driver.switch_to.default_content()
             if not self.is_solved():
-                self.logger.info('Resolvendo captcha...')
+                self.logger.debug('Resolvendo captcha...')
+                self.driver.switch_to.default_content()
 
                 iframe_img = self.find(XPATH['iframe'])
                 self.driver.switch_to.frame(iframe_img)
@@ -125,30 +120,46 @@ class Bot(Interation):
                 audio_button = self.find(CSS['audio'], metodo='css')
                 audio_button.click()
 
-                audio_link = self.find(CSS['audio-source'], metodo='css').get_attribute('src')
+                audio_link = self.find(CSS['audio-source'], metodo='css').get_attribute('href')
                 path_mp3, path_wav = get_temps_files()
 
                 text = convert_audio_to_string(audio_link, path_mp3, path_wav)
                 input_audio = self.find(CSS['input'], metodo='css')
-                input_audio.send_keys(text)
+                input_audio.send_keys(text.lower())
                 
-                verificar_btn = self.find(CSS['verify_btn'], metodo='css').click()
-                time.sleep(2)
-                self.driver.switch_to.default_content()
+                self.find(CSS['verify_btn'], metodo='css').click()
 
-            self.find(CSS['[value="ENVIAR"]'], metodo='css').click()
-            self.wait_for(CSS['[value="Imprimir"]'], metodo='css')
+            self.driver.switch_to.default_content()
+            self.find(CSS['enviar_btn'], metodo='css').click()
+            self.wait_for(CSS['imprimir_btn'], metodo='css')
         except Exception as e:
             self.logger.error(f"Erro ao resolver captcha: {e}")
+            self.quit()
 
     def get_values(self):
         """Retorna os dados do advogado."""
 
+        labels = [
+            'Número de Inscrição', 'Advogado', 'Impedimentos', 'Situação', 
+            'Subseção', 'Data da Inscrição', 'Endereço Comercial', 'Telefone Comercial'
+        ]
+        dados = {label: '' for label in labels}
+
         try:
             self.wait_for(CSS['rows'], metodo='css')
             rows = self.find_all(CSS['rows'], metodo='css')
-            dados = [row.find_elements(By.TAG_NAME, 'td')[1].text for row in rows]
-            return dados
+            
+            for row in rows:
+                cells = row.find_elements(By.TAG_NAME, 'td')
+                if len(cells) > 1:
+                    label = substituir_ultima_letra(cells[0].text.strip())
+                    value = cells[1].text.strip()
+                    if label in dados:
+                        dados[label] = value
+            
+            # Retorna os dados em uma ordem consistente
+            return [dados[label] for label in labels]
         except Exception as e:
             self.logger.error(f"Erro ao obter dados do advogado: {e}")
+            self.quit()
         

@@ -291,10 +291,11 @@ class Interation:
         Args:
             seconds (float): Número em segundos.
         """
+        
         time.sleep(seconds)
 
     def quit(self):
-        """
-        Encerra a instância do navegador.
-        """
-        self.driver.quit()
+        """Encerra a instância do navegador."""
+
+        self.quit()
+        exit()

@@ -19,7 +19,7 @@ def setup_logging(to_file=False):
 
     # Criar um logger
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     # Formato do log
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -60,6 +60,18 @@ def setup_logging(to_file=False):
 
     return logger
 
+def substituir_ultima_letra(palavra: str) -> str:
+    """
+    Substitui a última letra de uma palavra.
+
+    Args:
+        palavra (str): Palavra a ser modificada.
+    """
+    
+    if palavra.endswith("a"):
+        return palavra[:-1] + "o"
+    return palavra
+
 def get_temps_files() -> tuple:
     """Retorna os caminhos para os arquivos temporários"""
 
@@ -90,7 +102,6 @@ def get_excel_filename():
 
     filename = os.path.join(os.getcwd(), "advogados_OABPR.xlsx")
     return filename
-
 
 def create_excel_file():
     """
@@ -123,5 +134,5 @@ def insert_values(values: list):
     wb = load_workbook(filename)
     ws = wb.active
     row = ws.max_row + 1
-    ws.append(row)
+    ws.append(values)
     wb.save(filename)
